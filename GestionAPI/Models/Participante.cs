@@ -20,9 +20,9 @@ namespace GestionAPI.Models
         //evento asociado
         [Required]
         [ForeignKey("Evento")]
-        public int EventoId { get; set; }
+        public int? EventoId { get; set; }
 
         //propiedad de navegación
-        public Evento Evento { get; set; }
+        //public Evento? Evento { get; set; }
     }
 }

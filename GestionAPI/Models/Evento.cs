@@ -24,8 +24,8 @@ namespace GestionAPI.Models
         public string LugarEvento { get; set; }
 
         //propiedad de navegación
-        public ICollection<Participante> Participantes { get; set; }
-        public ICollection<Organizador> Organizadores { get; set; }
+       // public ICollection<Participante> Participantes { get; set; }
+       // public ICollection<Organizador> Organizadores { get; set; }
 
 
     }
