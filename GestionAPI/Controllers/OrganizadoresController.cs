@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using GestionAPI.Models;
+using StackExchange.Redis;
+using System.Text.Json;
 
 namespace GestionAPI.Controllers
 {
@@ -14,30 +16,47 @@ namespace GestionAPI.Controllers
     public class OrganizadoresController : ControllerBase
     {
         private readonly GestionDbContext _context;
+        private readonly IConnectionMultiplexer _redis;
 
-        public OrganizadoresController(GestionDbContext context)
+        public OrganizadoresController(GestionDbContext context, IConnectionMultiplexer redis)
         {
             _context = context;
+            _redis = redis;
         }
 
         // GET: api/Organizadores
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Organizador>>> GetOrganizadores()
         {
-            return await _context.Organizadores.ToListAsync();
+            var db = _redis.GetDatabase();
+            string cacheKey = "organizadoresList";
+            var organizadoresCache = await db.StringGetAsync(cacheKey);
+            if (!organizadoresCache.IsNullOrEmpty)
+            {
+                return JsonSerializer.Deserialize<List<Organizador>>(organizadoresCache);
+            }
+            var organizadores = await _context.Organizadores.ToListAsync();
+            await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(organizadores), TimeSpan.FromMinutes(10));
+            return organizadores;
         }
 
         // GET: api/Organizadores/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Organizador>> GetOrganizador(int id)
         {
+            var db = _redis.GetDatabase();
+            string cacheKey = "organizador_" + id.ToString();
+            var organizadoresCache = await db.StringGetAsync(cacheKey);
+            if (!organizadoresCache.IsNullOrEmpty)
+            {
+                return JsonSerializer.Deserialize<Organizador>(organizadoresCache);
+            }
             var organizador = await _context.Organizadores.FindAsync(id);
-
             if (organizador == null)
             {
                 return NotFound();
             }
-
+            await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(organizador), TimeSpan.FromMinutes(10));
             return organizador;
         }
 
@@ -50,12 +69,15 @@ namespace GestionAPI.Controllers
             {
                 return BadRequest();
             }
-
             _context.Entry(organizador).State = EntityState.Modified;
-
             try
             {
                 await _context.SaveChangesAsync();
+                var db = _redis.GetDatabase();
+                string cacheKeyOrganizador = "organizador_" + id.ToString();
+                string cacheKeyList = "organizadorList";
+                await db.KeyDeleteAsync(cacheKeyOrganizador);
+                await db.KeyDeleteAsync(cacheKeyList);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -67,8 +89,8 @@ namespace GestionAPI.Controllers
                 {
                     throw;
                 }
-            }
 
+            }
             return NoContent();
         }
 
@@ -79,7 +101,9 @@ namespace GestionAPI.Controllers
         {
             _context.Organizadores.Add(organizador);
             await _context.SaveChangesAsync();
-
+            var db = _redis.GetDatabase();
+            string cacheKeyList = "organizadorList";
+            await db.KeyDeleteAsync(cacheKeyList);
             return CreatedAtAction("GetOrganizador", new { id = organizador.Id }, organizador);
         }
 
@@ -92,10 +116,13 @@ namespace GestionAPI.Controllers
             {
                 return NotFound();
             }
-
             _context.Organizadores.Remove(organizador);
             await _context.SaveChangesAsync();
-
+            var db = _redis.GetDatabase();
+            string cacheKeyOrganizador = "organizador_" + id.ToString();
+            string cacheKeyList = "organizadorList";
+            await db.KeyDeleteAsync(cacheKeyOrganizador);
+            await db.KeyDeleteAsync(cacheKeyList);
             return NoContent();
         }
 
