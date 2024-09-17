@@ -18,7 +18,7 @@ namespace GestionAPI.Controllers
         private readonly GestionDbContext _context;
         private readonly IConnectionMultiplexer _redis;
 
-        public OrganizadoresController(GestionDbContext context, IConnectionMultiplexer redis)
+        public OrganizadoresController(GestionDbContext context, IConnectionMultiplexer? redis=null)
         {
             _context = context;
             _redis = redis;
@@ -44,19 +44,29 @@ namespace GestionAPI.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Organizador>> GetOrganizador(int id)
         {
-            var db = _redis.GetDatabase();
-            string cacheKey = "organizador_" + id.ToString();
-            var organizadoresCache = await db.StringGetAsync(cacheKey);
-            if (!organizadoresCache.IsNullOrEmpty)
+            if (_redis != null)
             {
-                return JsonSerializer.Deserialize<Organizador>(organizadoresCache);
+                var db = _redis.GetDatabase();
+                string cacheKey = "organizador_" + id.ToString();
+                var organizadoresCache = await db.StringGetAsync(cacheKey);
+                if (!organizadoresCache.IsNullOrEmpty)
+                {
+                    return JsonSerializer.Deserialize<Organizador>(organizadoresCache);
+                }
             }
+            
             var organizador = await _context.Organizadores.FindAsync(id);
             if (organizador == null)
             {
                 return NotFound();
             }
-            await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(organizador), TimeSpan.FromMinutes(10));
+            if (_redis != null)
+            {
+                var db = _redis.GetDatabase();
+                string cacheKey = "organizador_" + id.ToString();
+                await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(organizador), TimeSpan.FromMinutes(10));
+               
+            }
             return organizador;
         }
 
@@ -99,11 +109,24 @@ namespace GestionAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Organizador>> PostOrganizador(Organizador organizador)
         {
+            // Validar campos del organizador 
+            if (string.IsNullOrEmpty(organizador.NombreOrganizador) || organizador.NombreOrganizador.Length < 3 || organizador.NombreOrganizador.Length > 50)
+            {
+                return BadRequest("El nombre del organizador debe tener entre 3 y 50 caracteres.");
+            }
+            if (string.IsNullOrEmpty(organizador.CargoOrganizador) || organizador.CargoOrganizador.Length < 3 || organizador.CargoOrganizador.Length > 50)
+            {
+                return BadRequest("El cargo del organizador debe tener entre 3 y 50 caracteres.");
+            }
             _context.Organizadores.Add(organizador);
             await _context.SaveChangesAsync();
-            var db = _redis.GetDatabase();
-            string cacheKeyList = "organizadorList";
-            await db.KeyDeleteAsync(cacheKeyList);
+            if (_redis != null)
+            {
+                var db = _redis.GetDatabase();
+                string cacheKeyList = "organizadorList";
+                await db.KeyDeleteAsync(cacheKeyList);
+            }
+          
             return CreatedAtAction("GetOrganizador", new { id = organizador.Id }, organizador);
         }
 

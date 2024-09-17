@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using GestionAPI.Models;
 using StackExchange.Redis;
 using System.Text.Json;
+using System.Net.Mail;
 
 namespace GestionAPI.Controllers
 {
@@ -18,7 +19,7 @@ namespace GestionAPI.Controllers
         private readonly GestionDbContext _context;
         private readonly IConnectionMultiplexer _redis;
 
-        public ParticipantesController(GestionDbContext context, IConnectionMultiplexer redis)
+        public ParticipantesController(GestionDbContext context, IConnectionMultiplexer? redis = null)
         {
             _context = context;
             _redis = redis;
@@ -44,20 +45,28 @@ namespace GestionAPI.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Participante>> GetParticipante(int id)
         {
-
-            var db = _redis.GetDatabase();
-            string cacheKey = "participante_"+ id.ToString();
-            var participanteCache = await db.StringGetAsync(cacheKey);
-            if (!participanteCache.IsNullOrEmpty)
+            if(_redis != null)
             {
-                return JsonSerializer.Deserialize<Participante>(participanteCache);
+                var db = _redis.GetDatabase();
+                string cacheKey = "participante_" + id.ToString();
+                var participanteCache = await db.StringGetAsync(cacheKey);
+                if (!participanteCache.IsNullOrEmpty)
+                {
+                    return JsonSerializer.Deserialize<Participante>(participanteCache);
+                }
             }
             var participante = await _context.Participantes.FindAsync(id);
             if(participante == null)
             {
                 return NotFound();
             }
-            await db.StringSetAsync(cacheKey,JsonSerializer.Serialize(participante), TimeSpan.FromMinutes(10));
+            if (_redis != null) 
+            {
+                var db = _redis.GetDatabase();
+                string cacheKey = "participante_" + id.ToString();
+                await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(participante), TimeSpan.FromMinutes(10));
+            }
+           
             return participante;
         }
 
@@ -98,17 +107,37 @@ namespace GestionAPI.Controllers
         // POST: api/Participantes
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
+        [HttpPost]
         public async Task<ActionResult<Participante>> PostParticipante(Participante participante)
         {
+            // Validar campos del participante 
+            if (string.IsNullOrEmpty(participante.NombreParticipante) || participante.NombreParticipante.Length < 3 || participante.NombreParticipante.Length > 50)
+            {
+                return BadRequest("El nombre del participante debe tener entre 3 y 50 caracteres.");
+            }
+
+            var emailRegex = @"^[^@\s]+@[^@\s]+\.[^@\s]+$"; 
+            if (string.IsNullOrEmpty(participante.CorreoParticipante) || !System.Text.RegularExpressions.Regex.IsMatch(participante.CorreoParticipante, emailRegex))
+            {
+                return BadRequest("El correo electrónico no es válido.");
+            }
+
+
             _context.Participantes.Add(participante);
             await _context.SaveChangesAsync();
-            var db = _redis.GetDatabase();
-            string cacheKeyList = "participanteList";
-            await db.KeyDeleteAsync(cacheKeyList);
-            return CreatedAtAction("GetParticipante", new { id = participante.Id}, participante);
 
+            // Manejo del caché de Redis
+            if (_redis != null)
+            {
+                var db = _redis.GetDatabase();
+                string cacheKeyList = "participanteList";
+                await db.KeyDeleteAsync(cacheKeyList);
+            }
 
+            // Retornar la respuesta de creación
+            return CreatedAtAction("GetParticipante", new { id = participante.Id }, participante);
         }
+
 
         // DELETE: api/Participantes/5
         [HttpDelete("{id}")]

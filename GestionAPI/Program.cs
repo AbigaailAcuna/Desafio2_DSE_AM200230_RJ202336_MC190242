@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<GestionDbContext>(options =>
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 // Add services to the container.
-
+builder.Services.AddDbContext<GestionDbContext>(options => options.UseInMemoryDatabase("GestionInMemoryDb"));
 //Redis
 builder.Services.AddStackExchangeRedisOutputCache(opciones =>
 {

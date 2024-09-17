@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using GestionAPI.Models;
 using StackExchange.Redis;
 using System.Text.Json;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GestionAPI.Controllers
 {
@@ -18,7 +19,7 @@ namespace GestionAPI.Controllers
         private readonly GestionDbContext _context;
         private readonly IConnectionMultiplexer _redis;
 
-        public EventosController(GestionDbContext context, IConnectionMultiplexer redis)
+        public EventosController(GestionDbContext context, IConnectionMultiplexer? redis=null)
         {
             _context = context;
             _redis = redis;
@@ -44,19 +45,28 @@ namespace GestionAPI.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Evento>> GetEvento(int id)
         {
-            var db = _redis.GetDatabase();
-            string cacheKey = "evento_" + id.ToString();
-            var eventoCache = await db.StringGetAsync(cacheKey);
-            if (!eventoCache.IsNullOrEmpty)
+            if(_redis != null)
             {
-                return JsonSerializer.Deserialize<Evento>(eventoCache);
+                var db = _redis.GetDatabase();
+                string cacheKey = "evento_" + id.ToString();
+                var eventoCache = await db.StringGetAsync(cacheKey);
+                if (!eventoCache.IsNullOrEmpty)
+                {
+                    return JsonSerializer.Deserialize<Evento>(eventoCache);
+                }
             }
+ 
             var evento = await _context.Eventos.FindAsync(id);
             if (evento == null)
             {
                 return NotFound();
             }
-            await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(evento), TimeSpan.FromMinutes(10));
+            if(_redis != null)
+            {
+                var db = _redis.GetDatabase();
+                string cacheKey = "evento_" + id.ToString();
+                await db.StringSetAsync(cacheKey, JsonSerializer.Serialize(evento), TimeSpan.FromMinutes(10));
+            }
             return evento;
         }
 
@@ -99,11 +109,29 @@ namespace GestionAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Evento>> PostEvento(Evento evento)
         {
+            // Validar campos del evento 
+            if (string.IsNullOrEmpty(evento.NombreEvento) || evento.NombreEvento.Length < 5 || evento.NombreEvento.Length > 100)
+            {
+                return BadRequest("El nombre del evento debe tener entre 5 y 100 caracteres.");
+            }
+            if (evento.FechaEvento == default || evento.FechaEvento < DateTime.Now)
+            {
+                return BadRequest("La fecha del evento no puede ser nula y debe ser válida");
+            }
+            // Validar campos del evento 
+            if (string.IsNullOrEmpty(evento.LugarEvento) || evento.LugarEvento.Length < 5 || evento.LugarEvento.Length > 100)
+            {
+                return BadRequest("El lugar del evento debe tener entre 5 y 100 caracteres.");
+            }
             _context.Eventos.Add(evento);
             await _context.SaveChangesAsync();
-            var db = _redis.GetDatabase();
-            string cacheKeyList = "eventoList";
-            await db.KeyDeleteAsync(cacheKeyList);
+            if (_redis != null)
+            {
+                var db = _redis.GetDatabase();
+                string cacheKeyList = "eventoList";
+                await db.KeyDeleteAsync(cacheKeyList);
+            }
+            
             return CreatedAtAction("GetEvento", new { id = evento.Id }, evento);
 
         }
