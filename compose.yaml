@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: GestionAPI/Dockerfile
+    ports:
+      - "5002:80"
+    depends_on:
+      - redis
+      - sqlserver
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=Desafio2;User Id=sa;Password=MC190242&DSE;MultipleActiveResultSets=true;TrustServerCertificate=True;
+
+  apigateway:
+    build:
+      context: .
+      dockerfile: APIGateway/Dockerfile
+    ports:
+      - "5003:80"
+    depends_on:
+      - api
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1433:1433"
+    environment:
+      - SA_PASSWORD=MC190242&DSE
+      - ACCEPT_EULA=Y
+    networks:
+      - backend
+
+networks:
+  backend:
