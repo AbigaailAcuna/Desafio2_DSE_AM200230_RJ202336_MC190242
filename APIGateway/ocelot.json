@@ -3,11 +3,11 @@
     // Rutas para Participantes
     {
       "DownstreamPathTemplate": "/api/Participantes",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Participantes",
@@ -16,11 +16,11 @@
     },
     {
       "DownstreamPathTemplate": "/api/Participantes/{id}",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Participantes/{id}",
@@ -31,11 +31,11 @@
     // Rutas para Organizadores
     {
       "DownstreamPathTemplate": "/api/Organizadores",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Organizadores",
@@ -44,11 +44,11 @@
     },
     {
       "DownstreamPathTemplate": "/api/Organizadores/{id}",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Organizadores/{id}",
@@ -59,11 +59,11 @@
     // Rutas para Eventos
     {
       "DownstreamPathTemplate": "/api/Eventos",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Eventos",
@@ -72,11 +72,11 @@
     },
     {
       "DownstreamPathTemplate": "/api/Eventos/{id}",
-      "DownstreamScheme": "https",
+      "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "localhost",
-          "Port": 7187
+          "Host": "gestionapi",
+          "Port": 8080
         }
       ],
       "UpstreamPathTemplate": "/Eventos/{id}",
@@ -92,9 +92,9 @@
         "Config": [
           {
             "Name": "Gestion API",
-            "Scheme": "https",
-            "Host": "localhost",
-            "Port": 7187,
+            "Scheme": "http",
+            "Host": "gestionapi",
+            "Port": 8080,
             "Path": "/swagger/v1/swagger.json"
           }
         ]

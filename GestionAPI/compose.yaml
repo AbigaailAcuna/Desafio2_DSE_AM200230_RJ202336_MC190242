@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  gestionapi:
+    build:
+      context: .  # Contexto actual donde está el docker-compose.yml
+      dockerfile: Dockerfile  # Dockerfile en el directorio actual
+    container_name: gestionapi
+    ports:
+      - "7187:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - db
+      - redis
+
+  apigateway:
+    build:
+      context: ../APIGateway  # Ajusta la ruta al directorio que contiene el Dockerfile de APIGateway
+      dockerfile: Dockerfile  # Dockerfile en el directorio especificado
+    container_name: apigateway
+    ports:
+      - "5000:8080"
+    depends_on:
+      - gestionapi
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: db
+    environment:
+      - SA_PASSWORD=Admin123
+      - ACCEPT_EULA=Y
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  sqlserver-data:
